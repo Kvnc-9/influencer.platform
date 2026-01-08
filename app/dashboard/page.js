@@ -25,14 +25,13 @@ export default function Dashboard() {
   const [budget, setBudget] = useState(10000); 
   const [productPrice, setProductPrice] = useState(50); 
   const [results, setResults] = useState([]);
-  const [totalProfit, setTotalProfit] = useState(0); // Toplam Kar State'i
+  const [totalProfit, setTotalProfit] = useState(0); 
   const [loading, setLoading] = useState(false);
   const [showFormula, setShowFormula] = useState(false);
 
   // Webhook Tetikleme Fonksiyonu
   const triggerWebhook = () => {
     alert("Webhook tetiklendi: Yeni influencer veritabanına ekleniyor...");
-    // Burada fetch isteği atılabilir
   };
 
   const fetchInfluencers = async () => {
@@ -56,24 +55,22 @@ export default function Dashboard() {
       const avgViews = Number(inf.avg_views || 0);
 
       // --- GERÇEKÇİLİK KATMANI ---
-      // CPM'in farklı çıkması için maliyeti (cost) sadece izlenmeye bağlamıyoruz.
-      // Her influencer'ın pazarlık gücü farklıdır.
-      // 0.8 ile 1.2 arası rastgele bir "Pazarlık Çarpanı" ekliyoruz.
+      // Pazarlık Çarpanı (0.8 - 1.2 arası)
       const negotiationFactor = 0.8 + Math.random() * 0.4;
       
       const shareOfVoice = totalNicheViews > 0 ? avgViews / totalNicheViews : 0;
       
-      // Maliyet Hesabı: Bütçe payı * Pazarlık Çarpanı
+      // Maliyet Hesabı
       const cost = (budget * shareOfVoice) * negotiationFactor;
 
-      // Dönüşüm Oranı (Rastgelelik)
+      // Dönüşüm Oranı (Rastgelelik: %1.5 - %3.5)
       const randomConversionRate = 0.015 + (Math.random() * 0.020); 
 
       // Tahmini Kazanç
       const estimatedSales = Math.floor(avgViews * randomConversionRate);
       const earnings = estimatedSales * productPrice;
 
-      // CPM (Cost Per Mille) -> Herkes için farklı çıkacak
+      // CPM (Cost Per Mille)
       const cpm = avgViews > 0 ? (cost / avgViews) * 1000 : 0;
 
       // RPM (Revenue Per Mille)
@@ -84,7 +81,6 @@ export default function Dashboard() {
       calculatedTotalProfit += profit;
 
       // ROI ÇARPANI (x1.5 formatı)
-      // (Gelir / Maliyet)
       let roiMultiplier = 0;
       if (cost > 0) {
         roiMultiplier = (earnings / cost).toFixed(1);
@@ -96,7 +92,7 @@ export default function Dashboard() {
         cost: cost,
         earnings: earnings,
         profit: profit,
-        roiMultiplier: roiMultiplier + "x", // "x1.5" formatı
+        roiMultiplier: roiMultiplier + "x", 
         isPositive: profit > 0,
         cpm: cpm.toFixed(2),
         rpm: rpm.toFixed(2),
@@ -105,7 +101,6 @@ export default function Dashboard() {
     });
 
     setTotalProfit(calculatedTotalProfit);
-    // Kâra göre sırala
     setResults(calculatedData.sort((a, b) => b.profit - a.profit));
   };
 
@@ -127,7 +122,7 @@ export default function Dashboard() {
           </div>
           
           <div className="flex gap-3 mt-4 md:mt-0">
-             {/* WEBHOOK BUTONU (GRİ) */}
+             {/* WEBHOOK BUTONU */}
              <button 
                 onClick={triggerWebhook}
                 className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-500 px-4 py-2 rounded-lg hover:bg-slate-600 transition shadow-md"
@@ -153,12 +148,10 @@ export default function Dashboard() {
                 <div>
                     <span className="text-indigo-400 font-bold block mb-1">CPM (Cost Per Mille)</span>
                     <code>(Maliyet / İzlenme) * 1000</code>
-                    <p className="text-slate-400 text-xs mt-2">Maliyetler pazarlık gücüne göre değişkenlik gösterir.</p>
                 </div>
                 <div>
                     <span className="text-indigo-400 font-bold block mb-1">ROI Çarpanı</span>
                     <code>(Toplam Gelir / Toplam Maliyet)</code>
-                    <p className="text-slate-400 text-xs mt-2">Örn: x2.5 (1 koyup 2.5 aldın).</p>
                 </div>
                 <div>
                     <span className="text-indigo-400 font-bold block mb-1">Net Kâr</span>
@@ -195,9 +188,8 @@ export default function Dashboard() {
             </div>
         </div>
 
-        {/* GRAFİKLER (HİZALI: Grid-cols-2) */}
+        {/* GRAFİKLER */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {/* Kâr Grafiği */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96">
                 <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
                     <ArrowUpRight className="text-green-500" size={20}/> Net Kâr Dağılımı
@@ -216,7 +208,6 @@ export default function Dashboard() {
                 </ResponsiveContainer>
             </div>
 
-            {/* Maliyet Pastası */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96">
                 <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
                     <ArrowDownRight className="text-indigo-500" size={20}/> Bütçe Harcaması
@@ -276,7 +267,7 @@ export default function Dashboard() {
                                 {formatCurrency(row.cost)}
                             </td>
                             <td className="p-5 text-sm font-medium text-slate-500">
-                                ${row.cpm} {/* Değişken CPM */}
+                                ${row.cpm}
                             </td>
                             <td className="p-5 text-sm font-semibold text-slate-600">
                                 {formatCurrency(row.earnings)}
@@ -287,7 +278,26 @@ export default function Dashboard() {
                                 </span>
                             </td>
                             <td className="p-5">
-                                <div className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold border ${
-                                    row.isPositive
-                                    ? 'bg-green-100 text-green-800 border-green-200' 
-                                    : '
+                                {/* DÜZELTİLEN KISIM BURASI (Tek satıra indirildi) */}
+                                <div className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold border ${row.isPositive ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                    {row.roiMultiplier}
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+
+        {/* TOPLAM KAR KARTI */}
+        <div className={`p-8 rounded-2xl text-center border-l-8 shadow-sm transition-all ${totalProfit >= 0 ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500'}`}>
+            <h2 className="text-xl font-semibold text-slate-600 mb-2">Kampanya Sonu Toplam Tahmini Net Kâr</h2>
+            <p className={`text-5xl font-extrabold ${totalProfit >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                {formatCurrency(totalProfit)}
+            </p>
+        </div>
+
+      </div>
+    </div>
+  );
+}
