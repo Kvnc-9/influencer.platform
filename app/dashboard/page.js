@@ -1,208 +1,293 @@
-// Global grafik değişkenleri (Tekrar çizim hatasını önlemek için dışarıda tanımladık)
-let barChartInstance = null;
-let pieChartInstance = null;
+"use client";
+import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { Instagram, Info, TrendingUp, ArrowUpRight, ArrowDownRight, PlusCircle, DollarSign } from "lucide-react";
 
-// Yardımcı Fonksiyon: Rastgele sayı üretici
-function getRandomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+// Supabase Bağlantısı
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
-// Gri Buton Fonksiyonu (Webhook Tetikleme)
-function triggerWebhook() {
-    // Buraya Make.com veya backend webhook URL'ine fetch isteği atabilirsin
-    console.log("Webhook tetiklendi...");
+// Para Formatı Fonksiyonu
+const formatCurrency = (value) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+export default function Dashboard() {
+  const [niche, setNiche] = useState("Spor");
+  const [budget, setBudget] = useState(10000); 
+  const [productPrice, setProductPrice] = useState(50); 
+  const [results, setResults] = useState([]);
+  const [totalProfit, setTotalProfit] = useState(0); // Toplam Kar State'i
+  const [loading, setLoading] = useState(false);
+  const [showFormula, setShowFormula] = useState(false);
+
+  // Webhook Tetikleme Fonksiyonu
+  const triggerWebhook = () => {
     alert("Webhook tetiklendi: Yeni influencer veritabanına ekleniyor...");
-}
+    // Burada fetch isteği atılabilir
+  };
 
-// Ana Analiz Fonksiyonu
-function analyzeCampaign() {
-    // HTML'den verileri çekiyoruz
-    const nicheSelect = document.getElementById('niche');
-    const budgetInput = document.getElementById('budget');
-    const productPriceInput = document.getElementById('productPrice');
-
-    // Hata önlemek için element kontrolü
-    if (!nicheSelect || !budgetInput || !productPriceInput) {
-        console.error("Gerekli HTML elementleri bulunamadı (ID'leri kontrol et).");
-        return;
-    }
-
-    const niche = nicheSelect.value;
-    const budget = parseFloat(budgetInput.value) || 0;
-    const productPrice = parseFloat(productPriceInput.value) || 0;
-
-    // Mock Data: Influencer Listesi
-    const influencers = [
-        { name: "@" + niche + "_master", followers: 500000, engagement: 0.04 },
-        { name: "@daily_" + niche, followers: 250000, engagement: 0.06 },
-        { name: "@" + niche + "_guru", followers: 100000, engagement: 0.08 },
-        { name: "@micro_" + niche, followers: 50000, engagement: 0.12 }
-    ];
-
-    let tableHTML = "";
-    let totalCost = 0;
-    let totalRevenue = 0;
+  const fetchInfluencers = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("influencers").select("*").eq("niche", niche);
     
-    // Grafik Verileri için diziler
-    let labels = [];
-    let viewsData = [];
-    let costData = [];
+    if (data && data.length > 0) {
+      calculateMetrics(data);
+    } else {
+      setResults([]);
+      setTotalProfit(0);
+    }
+    setLoading(false);
+  };
 
-    influencers.forEach(inf => {
-        // 1. Maliyet Hesaplama: Bütçenin rastgele bir kısmı (%10-%30 arası)
-        const cost = Math.floor(budget * (Math.random() * 0.20 + 0.10));
-        
-        // 2. İzlenme Hesaplama (Views): 
-        // CPM'in farklı çıkması için her influencer'ın dolar başına getirdiği izlenmeyi değiştiriyoruz.
-        // Örn: Birinde 1$'a 30 izlenme, diğerinde 1$'a 50 izlenme gelir.
-        const viewsPerDollar = getRandomInt(25, 65); 
-        const estViews = cost * viewsPerDollar;
+  const calculateMetrics = (data) => {
+    const totalNicheViews = data.reduce((sum, inf) => sum + Number(inf.avg_views || 0), 0);
+    let calculatedTotalProfit = 0;
 
-        // 3. Satış ve Ciro Hesaplama
-        const conversionRate = (inf.engagement * 0.15); // Basit dönüşüm oranı mantığı
-        const estSales = Math.floor(estViews * conversionRate);
-        const revenue = estSales * productPrice;
+    const calculatedData = data.map((inf) => {
+      const avgViews = Number(inf.avg_views || 0);
 
-        // 4. CPM HESAPLAMA: (Maliyet / İzlenme) * 1000
-        // Sonuç her influencer için farklı çıkacak.
-        const cpm = ((cost / estViews) * 1000).toFixed(2);
+      // --- GERÇEKÇİLİK KATMANI ---
+      // CPM'in farklı çıkması için maliyeti (cost) sadece izlenmeye bağlamıyoruz.
+      // Her influencer'ın pazarlık gücü farklıdır.
+      // 0.8 ile 1.2 arası rastgele bir "Pazarlık Çarpanı" ekliyoruz.
+      const negotiationFactor = 0.8 + Math.random() * 0.4;
+      
+      const shareOfVoice = totalNicheViews > 0 ? avgViews / totalNicheViews : 0;
+      
+      // Maliyet Hesabı: Bütçe payı * Pazarlık Çarpanı
+      const cost = (budget * shareOfVoice) * negotiationFactor;
 
-        // 5. ROI ÇARPANI HESAPLAMA: (Gelir / Maliyet)
-        // Yüzde yerine "x1.5" gibi çarpan formatı.
-        let roiVal = 0;
-        if (cost > 0) {
-            roiVal = (revenue / cost).toFixed(1);
-        }
-        const roiMultiplier = roiVal + "x";
+      // Dönüşüm Oranı (Rastgelelik)
+      const randomConversionRate = 0.015 + (Math.random() * 0.020); 
 
-        // Toplamları güncelle
-        totalCost += cost;
-        totalRevenue += revenue;
+      // Tahmini Kazanç
+      const estimatedSales = Math.floor(avgViews * randomConversionRate);
+      const earnings = estimatedSales * productPrice;
 
-        // Grafik dizilerine veri ekle
-        labels.push(inf.name);
-        viewsData.push(estViews);
-        costData.push(cost);
+      // CPM (Cost Per Mille) -> Herkes için farklı çıkacak
+      const cpm = avgViews > 0 ? (cost / avgViews) * 1000 : 0;
 
-        // Tablo satırını oluştur
-        tableHTML += `
-            <tr class="hover:bg-gray-50 transition">
-                <td class="p-3 font-medium">${inf.name}</td>
-                <td class="p-3">${estViews.toLocaleString()}</td>
-                <td class="p-3">$${cost}</td>
-                <td class="p-3">$${cpm}</td>
-                <td class="p-3">${estSales}</td>
-                <td class="p-3">$${revenue.toLocaleString()}</td>
-                <td class="p-3 font-bold text-green-600 bg-green-50 rounded">${roiMultiplier}</td>
-            </tr>
-        `;
+      // RPM (Revenue Per Mille)
+      const rpm = avgViews > 0 ? (earnings / avgViews) * 1000 : 0;
+
+      // Net Kar
+      const profit = earnings - cost;
+      calculatedTotalProfit += profit;
+
+      // ROI ÇARPANI (x1.5 formatı)
+      // (Gelir / Maliyet)
+      let roiMultiplier = 0;
+      if (cost > 0) {
+        roiMultiplier = (earnings / cost).toFixed(1);
+      }
+
+      return {
+        username: inf.username,
+        avg_views: avgViews,
+        cost: cost,
+        earnings: earnings,
+        profit: profit,
+        roiMultiplier: roiMultiplier + "x", // "x1.5" formatı
+        isPositive: profit > 0,
+        cpm: cpm.toFixed(2),
+        rpm: rpm.toFixed(2),
+        sales: estimatedSales
+      };
     });
 
-    // Tabloyu HTML içine bas
-    const tableBody = document.getElementById('influencerTableBody');
-    if (tableBody) tableBody.innerHTML = tableHTML;
+    setTotalProfit(calculatedTotalProfit);
+    // Kâra göre sırala
+    setResults(calculatedData.sort((a, b) => b.profit - a.profit));
+  };
 
-    // Toplam Kar Hesapla ve Yazdır (Gelir - Maliyet)
-    const totalProfit = totalRevenue - totalCost;
-    const profitDisplay = document.getElementById('totalProfitDisplay');
-    
-    if (profitDisplay) {
-        profitDisplay.innerText = "$" + totalProfit.toLocaleString();
-        // Kar negatifse rengi kırmızı yap, pozitifse yeşil
-        if(totalProfit < 0) {
-            profitDisplay.classList.remove('text-green-700');
-            profitDisplay.classList.add('text-red-600');
-        } else {
-            profitDisplay.classList.remove('text-red-600');
-            profitDisplay.classList.add('text-green-700');
-        }
-    }
+  useEffect(() => {
+    fetchInfluencers();
+  }, [niche, budget, productPrice]);
 
-    // Sonuç alanını görünür yap
-    const resultsArea = document.getElementById('resultsArea');
-    if (resultsArea) resultsArea.classList.remove('hidden');
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* Üst Başlık */}
+        <header className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+               <TrendingUp className="text-indigo-600"/> Dashboard
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">Kampanya Simülasyonu ve ROI Analizi</p>
+          </div>
+          
+          <div className="flex gap-3 mt-4 md:mt-0">
+             {/* WEBHOOK BUTONU (GRİ) */}
+             <button 
+                onClick={triggerWebhook}
+                className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-500 px-4 py-2 rounded-lg hover:bg-slate-600 transition shadow-md"
+              >
+                <PlusCircle size={18} /> Influencer Ekle
+              </button>
 
-    // Grafikleri oluştur
-    renderCharts(labels, viewsData, costData);
-}
+              {/* Formül Butonu */}
+              <button 
+                onClick={() => setShowFormula(!showFormula)}
+                className="flex items-center gap-2 text-sm font-semibold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition"
+              >
+                <Info size={18} /> Mantık
+              </button>
+          </div>
+        </header>
 
-// Grafikleri Çizen Fonksiyon
-function renderCharts(labels, viewsData, costData) {
-    // 1. Bar Chart (İzlenme ve Maliyet)
-    const ctxBar = document.getElementById('barChart');
-    
-    if (ctxBar) {
-        // Varsa eski grafiği temizle
-        if (barChartInstance) barChartInstance.destroy();
+        {/* Formül Açıklaması (Popup) */}
+        {showFormula && (
+          <div className="bg-slate-800 text-white p-6 rounded-xl mb-8 shadow-lg animate-in slide-in-from-top-2">
+            <h3 className="text-lg font-bold mb-4 border-b border-slate-600 pb-2">Kullanılan Formüller</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-sm">
+                <div>
+                    <span className="text-indigo-400 font-bold block mb-1">CPM (Cost Per Mille)</span>
+                    <code>(Maliyet / İzlenme) * 1000</code>
+                    <p className="text-slate-400 text-xs mt-2">Maliyetler pazarlık gücüne göre değişkenlik gösterir.</p>
+                </div>
+                <div>
+                    <span className="text-indigo-400 font-bold block mb-1">ROI Çarpanı</span>
+                    <code>(Toplam Gelir / Toplam Maliyet)</code>
+                    <p className="text-slate-400 text-xs mt-2">Örn: x2.5 (1 koyup 2.5 aldın).</p>
+                </div>
+                <div>
+                    <span className="text-indigo-400 font-bold block mb-1">Net Kâr</span>
+                    <code>Gelir - Maliyet</code>
+                </div>
+            </div>
+          </div>
+        )}
 
-        barChartInstance = new Chart(ctxBar.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'İzlenme (Views)',
-                        data: viewsData,
-                        backgroundColor: 'rgba(59, 130, 246, 0.6)', // Mavi
-                        yAxisID: 'y',
-                    },
-                    {
-                        label: 'Maliyet ($)',
-                        data: costData,
-                        backgroundColor: 'rgba(239, 68, 68, 0.6)', // Kırmızı
-                        yAxisID: 'y1',
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false, // CSS ile yönetmek için false
-                scales: {
-                    y: {
-                        type: 'linear',
-                        display: true,
-                        position: 'left',
-                        title: { display: true, text: 'İzlenme Sayısı' }
-                    },
-                    y1: {
-                        type: 'linear',
-                        display: true,
-                        position: 'right',
-                        grid: { drawOnChartArea: false },
-                        title: { display: true, text: 'Maliyet ($)' }
-                    }
-                }
-            }
-        });
-    }
+        {/* GİRDİ ALANLARI */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Kategori (Niche)</label>
+                <select value={niche} onChange={(e) => setNiche(e.target.value)} className="w-full mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-700">
+                    <option value="Spor">Spor & Fitness</option>
+                    <option value="Güzellik">Güzellik & Bakım</option>
+                    <option value="Teknoloji">Teknoloji</option>
+                    <option value="Yemek">Yemek & Gurme</option>
+                </select>
+            </div>
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Kampanya Bütçesi</label>
+                <div className="flex items-center mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3 focus-within:ring-2 focus-within:ring-indigo-500">
+                    <span className="text-slate-400 font-bold mr-2">$</span>
+                    <input type="number" value={budget} onChange={(e) => setBudget(Number(e.target.value))} className="bg-transparent w-full outline-none font-bold text-slate-800" />
+                </div>
+            </div>
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ürün Satış Fiyatı</label>
+                <div className="flex items-center mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3 focus-within:ring-2 focus-within:ring-green-500">
+                    <span className="text-slate-400 font-bold mr-2">$</span>
+                    <input type="number" value={productPrice} onChange={(e) => setProductPrice(Number(e.target.value))} className="bg-transparent w-full outline-none font-bold text-green-700" />
+                </div>
+            </div>
+        </div>
 
-    // 2. Pie Chart (Bütçe Dağılımı)
-    const ctxPie = document.getElementById('pieChart');
+        {/* GRAFİKLER (HİZALI: Grid-cols-2) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {/* Kâr Grafiği */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96">
+                <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <ArrowUpRight className="text-green-500" size={20}/> Net Kâr Dağılımı
+                </h4>
+                <ResponsiveContainer width="100%" height="90%">
+                    <BarChart data={results}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis dataKey="username" hide />
+                        <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `$${value}`} />
+                        <Tooltip 
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
+                            formatter={(value) => formatCurrency(value)}
+                        />
+                        <Bar dataKey="profit" fill="#10b981" radius={[6, 6, 0, 0]} name="Net Kâr" />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
 
-    if (ctxPie) {
-        // Varsa eski grafiği temizle
-        if (pieChartInstance) pieChartInstance.destroy();
+            {/* Maliyet Pastası */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96">
+                <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <ArrowDownRight className="text-indigo-500" size={20}/> Bütçe Harcaması
+                </h4>
+                <ResponsiveContainer width="100%" height="90%">
+                    <PieChart>
+                        <Pie 
+                            data={results} 
+                            dataKey="cost" 
+                            nameKey="username" 
+                            cx="50%" cy="50%" 
+                            innerRadius={70} 
+                            outerRadius={100} 
+                            paddingAngle={5}
+                            fill="#8884d8"
+                        >
+                            {results.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={['#6366f1', '#a855f7', '#ec4899', '#3b82f6'][index % 4]} />
+                            ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => formatCurrency(value)} />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
 
-        pieChartInstance = new Chart(ctxPie.getContext('2d'), {
-            type: 'doughnut',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: costData,
-                    backgroundColor: [
-                        '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'
-                    ],
-                    hoverOffset: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom' },
-                    title: { display: true, text: 'Harcama Dağılımı' }
-                }
-            }
-        });
-    }
-}
+        {/* DETAYLI TABLO */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden mb-8">
+            <table className="w-full text-left border-collapse">
+                <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+                        <th className="p-5 font-bold">Influencer</th>
+                        <th className="p-5 font-bold">Maliyet</th>
+                        <th className="p-5 font-bold">CPM</th>
+                        <th className="p-5 font-bold">Gelir</th>
+                        <th className="p-5 font-bold">Net Kâr</th>
+                        <th className="p-5 font-bold">ROI</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                    {results.map((row) => (
+                        <tr key={row.username} className="hover:bg-indigo-50/30 transition duration-200">
+                            <td className="p-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 p-[2px] rounded-full">
+                                        <div className="bg-white p-1 rounded-full">
+                                            <Instagram size={16} className="text-slate-800"/> 
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span className="block font-bold text-slate-700 text-sm">@{row.username}</span>
+                                        <span className="text-xs text-slate-400">{row.avg_views.toLocaleString()} izlenme</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td className="p-5 text-sm font-semibold text-slate-600">
+                                {formatCurrency(row.cost)}
+                            </td>
+                            <td className="p-5 text-sm font-medium text-slate-500">
+                                ${row.cpm} {/* Değişken CPM */}
+                            </td>
+                            <td className="p-5 text-sm font-semibold text-slate-600">
+                                {formatCurrency(row.earnings)}
+                            </td>
+                            <td className="p-5">
+                                <span className={`text-sm font-bold ${row.isPositive ? 'text-green-600' : 'text-red-500'}`}>
+                                    {row.isPositive ? '+' : ''}{formatCurrency(row.profit)}
+                                </span>
+                            </td>
+                            <td className="p-5">
+                                <div className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold border ${
+                                    row.isPositive
+                                    ? 'bg-green-100 text-green-800 border-green-200' 
+                                    : '
