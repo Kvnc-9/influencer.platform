@@ -1,234 +1,73 @@
-"use client";
-import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import Link from "next/link";
+import { CheckCircle, ArrowRight, Star } from "lucide-react";
 
-// Supabase Bağlantısı
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-
-export default function Home() {
-  const [niche, setNiche] = useState("Spor");
-  const [budget, setBudget] = useState(50000);
-  const [productPrice, setProductPrice] = useState(500);
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  // Verileri Çek ve Hesapla
-  const fetchInfluencers = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("influencers")
-      .select("*")
-      .eq("niche", niche); // Niche filtresi
-
-    if (data && data.length > 0) {
-      calculateROI(data);
-    } else {
-      setResults([]); // Veri yoksa tabloyu temizle
-    }
-    setLoading(false);
-  };
-
-  // Hesaplama Motoru
-  const calculateROI = (data) => {
-    // 1. Toplam Niche İzlenmesini Bul
-    // (ParseInt kullanıyoruz çünkü veritabanından bazen string gelebilir)
-    const totalNicheViews = data.reduce((sum, inf) => sum + Number(inf.avg_views || 0), 0);
-    const conversionRate = 0.02; // %2 Dönüşüm oranı
-
-    const calculatedData = data.map((inf) => {
-      const avgViews = Number(inf.avg_views || 0);
-      
-      // Bütçe Payı (Share of Voice)
-      const shareOfVoice = totalNicheViews > 0 ? avgViews / totalNicheViews : 0;
-      const cost = budget * shareOfVoice;
-
-      // Gelir Tahmini
-      const sales = avgViews * conversionRate;
-      const earnings = sales * productPrice;
-
-      // Metrikler
-      const profit = earnings - cost;
-      const roi = cost > 0 ? ((profit / cost) * 100).toFixed(1) : 0;
-      const cpm = avgViews > 0 ? ((cost / avgViews) * 1000).toFixed(2) : 0;
-      const rpm = avgViews > 0 ? ((earnings / avgViews) * 1000).toFixed(2) : 0;
-
-      return {
-        username: inf.username,
-        avg_views: avgViews,
-        cost: Math.round(cost),
-        earnings: Math.round(earnings),
-        profit: Math.round(profit),
-        roi: roi,
-        cpm: cpm,
-        rpm: rpm,
-      };
-    });
-
-    // Kâra göre sırala (En kârlı en üstte)
-    setResults(calculatedData.sort((a, b) => b.profit - a.profit));
-  };
-
-  useEffect(() => {
-    fetchInfluencers();
-  }, [niche, budget, productPrice]);
-
-  // Yeni Influencer Ekleme (Webhook)
-  const handleAddInfluencer = () => {
-    const user = prompt("Instagram kullanıcı adını girin (Örn: cristiano):");
-    if (!user) return;
-
-    // SENİN MAKE.COM WEBHOOK LİNKİN BURAYA GELECEK
-    const webhookUrl = "https://hook.eu1.make.com/ixxd5cuuqkhhkpd8sqn5soiyol0a952x";
-
-    fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: user })
-    })
-    .then(() => alert("İşlem başlatıldı! 1-2 dakika içinde listeye eklenecek."))
-    .catch(() => alert("Bir hata oluştu."));
-  };
-
+export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans text-gray-800">
-      <div className="max-w-6xl mx-auto">
-        <header className="mb-8 flex justify-between items-center">
-            <div>
-                <h1 className="text-3xl font-bold text-indigo-700">ROI Master 🚀</h1>
-                <p className="text-gray-500">Influencer Bütçe Optimizasyon Aracı</p>
-            </div>
-            <button 
-                onClick={handleAddInfluencer}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition"
-            >
-                + Yeni Influencer Ekle
-            </button>
-        </header>
-
-        {/* Input Alanı */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Kategori (Niche)</label>
-            <select 
-              value={niche} 
-              onChange={(e) => setNiche(e.target.value)}
-              className="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none"
-            >
-              <option value="Spor">Spor</option>
-              <option value="Güzellik">Güzellik</option>
-              <option value="Teknoloji">Teknoloji</option>
-              <option value="Yemek">Yemek</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Toplam Bütçe (TL)</label>
-            <input 
-              type="number" 
-              value={budget} 
-              onChange={(e) => setBudget(Number(e.target.value))}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Ürün Fiyatı (TL)</label>
-            <input 
-              type="number" 
-              value={productPrice} 
-              onChange={(e) => setProductPrice(Number(e.target.value))}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
+    <div className="min-h-screen bg-white font-sans text-slate-900">
+      {/* Navbar */}
+      <nav className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
+        <div className="text-2xl font-bold text-indigo-600 flex items-center gap-2">
+           🚀 ROI Master
         </div>
+        <div className="flex gap-4">
+            <Link href="/login" className="px-5 py-2.5 text-slate-600 hover:text-indigo-600 font-medium transition">Giriş Yap</Link>
+            <Link href="/login" className="px-5 py-2.5 bg-indigo-600 text-white rounded-full font-medium hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">Ücretsiz Dene</Link>
+        </div>
+      </nav>
 
-        {loading ? (
-            <div className="text-center py-20 text-gray-400">Veriler yükleniyor...</div>
-        ) : (
-            <>
-                {/* Grafikler */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                {/* Sol: Kâr Grafiği */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-80">
-                    <h3 className="font-semibold mb-4 text-gray-700">Tahmini Net Kâr (TL)</h3>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={results} margin={{ bottom: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="username" hide />
-                        <YAxis />
-                        <Tooltip 
-                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                        />
-                        <Bar dataKey="profit" fill="#10b981" radius={[4, 4, 0, 0]} name="Kâr" />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
+      {/* Hero Section */}
+      <header className="max-w-5xl mx-auto px-6 pt-20 pb-32 text-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-sm font-semibold mb-6 border border-indigo-100">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+            </span>
+            Yapay Zeka Destekli Analiz
+        </div>
+        <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 mb-8 leading-tight">
+          Influencer Bütçenizi <br/>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Şansa Bırakmayın.</span>
+        </h1>
+        <p className="text-xl text-slate-500 mb-10 max-w-2xl mx-auto leading-relaxed">
+          Reklam bütçenizi en yüksek dönüşüm getirecek influencerlara otomatik dağıtın. 
+          Şeffaf ROI, CPM ve RPM hesaplamalarıyla kârınızı maksimize edin.
+        </p>
+        <div className="flex justify-center gap-4">
+            <Link href="/login" className="px-8 py-4 bg-indigo-600 text-white text-lg font-bold rounded-xl hover:bg-indigo-700 transition shadow-xl shadow-indigo-200 flex items-center gap-2">
+                Hemen Hesapla <ArrowRight size={20}/>
+            </Link>
+        </div>
+        
+        {/* Social Proof */}
+        <div className="mt-16 pt-10 border-t border-slate-100">
+            <p className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-6">Sektör Liderleri Bize Güveniyor</p>
+            <div className="flex justify-center items-center gap-8 md:gap-16 opacity-50 grayscale hover:grayscale-0 transition duration-500">
+                <span className="font-bold text-xl">TechMedia</span>
+                <span className="font-bold text-xl">GlowCosmetics</span>
+                <span className="font-bold text-xl">FitLife TR</span>
+                <span className="font-bold text-xl">Chef's Table</span>
+            </div>
+        </div>
+      </header>
 
-                {/* Sağ: Bütçe Pastası */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-80">
-                    <h3 className="font-semibold mb-4 text-gray-700">Bütçe Dağılımı</h3>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                        <Pie 
-                            data={results} 
-                            dataKey="cost" 
-                            nameKey="username" 
-                            cx="50%" cy="50%" 
-                            outerRadius={80} 
-                            fill="#6366f1" 
-                            label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        >
-                            {results.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#10b981', '#f59e0b'][index % 6]} />
-                            ))}
-                        </Pie>
-                        <Tooltip />
-                        </PieChart>
-                    </ResponsiveContainer>
+      {/* Özellikler */}
+      <section className="bg-slate-50 py-24">
+        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12">
+            {[
+                {title: "Şeffaf Hesaplama", desc: "Gizli formüller yok. CPM, RPM ve ROI değerlerini açıkça görün."},
+                {title: "Gerçek Veri Tabanı", desc: "Supabase altyapısı ile güncel influencer verilerine erişin."},
+                {title: "Akıllı Dağıtım", desc: "Bütçenizi izlenme ve etkileşim oranlarına göre optimize edin."}
+            ].map((item, i) => (
+                <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+                    <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 mb-6">
+                        <CheckCircle />
+                    </div>
+                    <h3 className="text-xl font-bold mb-3">{item.title}</h3>
+                    <p className="text-slate-500 leading-relaxed">{item.desc}</p>
                 </div>
-                </div>
-
-                {/* Detaylı Tablo */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                    <tr>
-                        <th className="p-4 font-semibold">Influencer</th>
-                        <th className="p-4 font-semibold">İzlenme (Ort)</th>
-                        <th className="p-4 font-semibold text-indigo-600">Bütçe Payı</th>
-                        <th className="p-4 font-semibold text-green-600">Net Kâr</th>
-                        <th className="p-4 font-semibold">ROI</th>
-                        <th className="p-4 font-semibold">CPM / RPM</th>
-                    </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                    {results.map((row) => (
-                        <tr key={row.username} className="hover:bg-gray-50 transition">
-                        <td className="p-4 font-medium text-gray-800">@{row.username}</td>
-                        <td className="p-4 text-gray-500">{row.avg_views.toLocaleString()}</td>
-                        <td className="p-4 font-bold text-indigo-600">{row.cost.toLocaleString()} ₺</td>
-                        <td className="p-4 font-bold text-green-600">{row.profit.toLocaleString()} ₺</td>
-                        <td className="p-4">
-                            <span className={`px-2 py-1 rounded text-xs font-bold ${Number(row.roi) > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                %{row.roi}
-                            </span>
-                        </td>
-                        <td className="p-4 text-xs text-gray-500">
-                            CPM: {row.cpm}<br/>RPM: {row.rpm}
-                        </td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
-                {results.length === 0 && (
-                    <div className="p-8 text-center text-gray-400">Bu kategoride henüz veri yok.</div>
-                )}
-                </div>
-            </>
-        )}
-      </div>
+            ))}
+        </div>
+      </section>
     </div>
   );
 }
