@@ -3,9 +3,9 @@ import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { 
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList 
-} from "recharts"; // LabelList eklendi
-import { Instagram, Info, TrendingUp, ArrowUpRight, ArrowDownRight, PlusCircle, Send } from "lucide-react";
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList, Legend 
+} from "recharts"; // Legend eklendi
+import { Instagram, Info, TrendingUp, ArrowUpRight, ArrowDownRight, PlusCircle, Send, Users } from "lucide-react";
 
 // Supabase Bağlantısı
 const supabase = createClient(
@@ -13,7 +13,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-// Para Formatı Fonksiyonu
+// Para Formatı
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -32,42 +32,35 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [showFormula, setShowFormula] = useState(false);
   
-  // YENİ: Influencer Ekleme State'i
+  // Influencer Ekleme State'i
   const [newInfluencerName, setNewInfluencerName] = useState("");
 
-  // YENİ: Webhook Tetikleme Fonksiyonu
+  // WEBHOOK FONKSİYONU
   const triggerWebhook = async () => {
     if (!newInfluencerName.trim()) {
-      alert("Lütfen bir influencer ismi giriniz.");
+      alert("Lütfen bir influencer ismi yazın!");
       return;
     }
 
     try {
-      // BURAYA KENDİ MAKE.COM / WEBHOOK URL'İNİ YAPIŞTIR
+      // SENİN VERDİĞİN LİNK:
       const WEBHOOK_URL = "https://hook.eu1.make.com/ixxd5cuuqkhhkpd8sqn5soiyol0a952x"; 
 
-      // Gerçek istek simülasyonu (URL boşsa hata vermemesi için kontrol)
-      if (WEBHOOK_URL.includes("SENIN_WEBHOOK")) {
-        // Test modu: Sadece alert verir
-        alert(`Simülasyon: ${newInfluencerName} için webhook tetiklendi! (Gerçek işlem için kod içindeki URL'i güncelle)`);
-      } else {
-        // Gerçek istek
-        await fetch(WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            influencer_name: newInfluencerName,
-            niche: niche,
-            request_date: new Date().toISOString()
-          })
-        });
-        alert(`${newInfluencerName} başarıyla işleme alındı!`);
-      }
+      await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          influencer_name: newInfluencerName,
+          niche: niche,
+          request_date: new Date().toISOString()
+        })
+      });
       
+      alert(`✅ Başarılı: ${newInfluencerName} sisteme gönderildi!`);
       setNewInfluencerName(""); // Kutuyu temizle
     } catch (error) {
       console.error("Webhook Hatası:", error);
-      alert("Bir hata oluştu.");
+      alert("Bir hata oluştu, konsolu kontrol edin.");
     }
   };
 
@@ -90,11 +83,10 @@ export default function Dashboard() {
 
     const calculatedData = data.map((inf) => {
       const avgViews = Number(inf.avg_views || 0);
-
-      // Simülasyon Değerleri
       const negotiationFactor = 0.8 + Math.random() * 0.4;
       const shareOfVoice = totalNicheViews > 0 ? avgViews / totalNicheViews : 0;
-      const cost = (budget * shareOfVoice) * negotiationFactor;
+      const cost = Math.floor((budget * shareOfVoice) * negotiationFactor);
+      
       const randomConversionRate = 0.015 + (Math.random() * 0.020); 
       const estimatedSales = Math.floor(avgViews * randomConversionRate);
       const earnings = estimatedSales * productPrice;
@@ -108,7 +100,8 @@ export default function Dashboard() {
       if (cost > 0) roiMultiplier = (earnings / cost).toFixed(1);
 
       return {
-        username: inf.username,
+        username: inf.username, // Grafik için gerekli
+        name: inf.username,     // Legend için gerekli
         avg_views: avgViews,
         cost: cost,
         earnings: earnings,
@@ -133,8 +126,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
       <div className="max-w-7xl mx-auto">
         
-        {/* Üst Başlık ve Webhook Alanı */}
-        <header className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        {/* HEADER: BAŞLIK + WEBHOOK ALANI */}
+        <header className="flex flex-col xl:flex-row justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                <TrendingUp className="text-indigo-600"/> Dashboard
@@ -142,61 +135,56 @@ export default function Dashboard() {
             <p className="text-slate-500 text-sm mt-1">Kampanya Simülasyonu ve ROI Analizi</p>
           </div>
           
-          {/* YENİ WEBHOOK & INPUT ALANI */}
-          <div className="flex flex-col md:flex-row gap-3 mt-4 md:mt-0 items-center">
+          {/* --- BURASI SENİN İSTEDİĞİN GİRİŞ ALANI --- */}
+          <div className="flex flex-col sm:flex-row gap-3 items-center w-full xl:w-auto">
              
-             <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
-                <input 
-                  type="text" 
-                  placeholder="@kullanici_adi" 
-                  value={newInfluencerName}
-                  onChange={(e) => setNewInfluencerName(e.target.value)}
-                  className="bg-transparent px-3 py-2 outline-none text-sm w-40 text-slate-700 placeholder-slate-400"
-                />
+             {/* Influencer Ekleme Kutusu */}
+             <div className="flex items-center bg-indigo-50/50 p-2 rounded-xl border border-indigo-100 w-full sm:w-auto">
+                <div className="bg-white flex items-center rounded-lg border border-slate-200 px-3 py-2 mr-2 shadow-sm w-full">
+                    <span className="text-slate-400 mr-2">@</span>
+                    <input 
+                      type="text" 
+                      placeholder="kullanici_adi" 
+                      value={newInfluencerName}
+                      onChange={(e) => setNewInfluencerName(e.target.value)}
+                      className="bg-transparent outline-none text-slate-700 text-sm w-32 placeholder-slate-300 font-medium"
+                    />
+                </div>
                 <button 
                   onClick={triggerWebhook}
-                  className="bg-slate-800 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-slate-700 transition flex items-center gap-2"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 shadow-md whitespace-nowrap"
                 >
-                  <PlusCircle size={16} /> Ekle
+                  <Send size={14} /> Ekle
                 </button>
              </div>
 
-              {/* Formül Butonu */}
+              {/* Mantık Butonu */}
               <button 
                 onClick={() => setShowFormula(!showFormula)}
-                className="flex items-center gap-2 text-sm font-semibold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition h-full"
+                className="hidden sm:flex items-center gap-2 text-sm font-semibold text-slate-500 bg-slate-100 px-4 py-2 rounded-lg hover:bg-slate-200 transition h-full border border-slate-200"
               >
                 <Info size={18} /> Mantık
               </button>
           </div>
         </header>
 
-        {/* Formül Açıklaması */}
+        {/* Formül Popup */}
         {showFormula && (
           <div className="bg-slate-800 text-white p-6 rounded-xl mb-8 shadow-lg animate-in slide-in-from-top-2">
-            <h3 className="text-lg font-bold mb-4 border-b border-slate-600 pb-2">Kullanılan Formüller</h3>
+            <h3 className="text-lg font-bold mb-4 border-b border-slate-600 pb-2">Hesaplama Mantığı</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-sm">
-                <div>
-                    <span className="text-indigo-400 font-bold block mb-1">CPM (Cost Per Mille)</span>
-                    <code>(Maliyet / İzlenme) * 1000</code>
-                </div>
-                <div>
-                    <span className="text-indigo-400 font-bold block mb-1">ROI Çarpanı</span>
-                    <code>(Toplam Gelir / Toplam Maliyet)</code>
-                </div>
-                <div>
-                    <span className="text-indigo-400 font-bold block mb-1">Net Kâr</span>
-                    <code>Gelir - Maliyet</code>
-                </div>
+                <div><code>CPM = (Maliyet / İzlenme) * 1000</code></div>
+                <div><code>ROI = (Gelir / Maliyet)</code></div>
+                <div><code>Kar = Gelir - Maliyet</code></div>
             </div>
           </div>
         )}
 
-        {/* GİRDİ ALANLARI */}
+        {/* GİRDİLER */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Kategori (Niche)</label>
-                <select value={niche} onChange={(e) => setNiche(e.target.value)} className="w-full mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-700">
+                <label className="text-xs font-bold text-slate-400 uppercase">Kategori</label>
+                <select value={niche} onChange={(e) => setNiche(e.target.value)} className="w-full mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-700">
                     <option value="Spor">Spor & Fitness</option>
                     <option value="Güzellik">Güzellik & Bakım</option>
                     <option value="Teknoloji">Teknoloji</option>
@@ -204,29 +192,30 @@ export default function Dashboard() {
                 </select>
             </div>
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Kampanya Bütçesi</label>
-                <div className="flex items-center mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3 focus-within:ring-2 focus-within:ring-indigo-500">
+                <label className="text-xs font-bold text-slate-400 uppercase">Bütçe</label>
+                <div className="flex items-center mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3">
                     <span className="text-slate-400 font-bold mr-2">$</span>
                     <input type="number" value={budget} onChange={(e) => setBudget(Number(e.target.value))} className="bg-transparent w-full outline-none font-bold text-slate-800" />
                 </div>
             </div>
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ürün Satış Fiyatı</label>
-                <div className="flex items-center mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3 focus-within:ring-2 focus-within:ring-green-500">
+                <label className="text-xs font-bold text-slate-400 uppercase">Ürün Fiyatı</label>
+                <div className="flex items-center mt-2 bg-slate-50 border border-slate-200 rounded-lg p-3">
                     <span className="text-slate-400 font-bold mr-2">$</span>
                     <input type="number" value={productPrice} onChange={(e) => setProductPrice(Number(e.target.value))} className="bg-transparent w-full outline-none font-bold text-green-700" />
                 </div>
             </div>
         </div>
 
-        {/* GRAFİKLER */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {/* 1. Bar Chart: Net Kâr */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96">
-                <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
-                    <ArrowUpRight className="text-green-500" size={20}/> Net Kâr Dağılımı
+        {/* --- GRAFİKLER --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            
+            {/* 1. Bar Chart */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-[500px]">
+                <h4 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
+                    <ArrowUpRight className="text-green-500" size={20}/> Net Kâr Analizi
                 </h4>
-                <ResponsiveContainer width="100%" height="90%">
+                <ResponsiveContainer width="100%" height="85%">
                     <BarChart data={results} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                         <XAxis dataKey="username" hide />
@@ -236,17 +225,16 @@ export default function Dashboard() {
                             formatter={(value) => formatCurrency(value)}
                         />
                         <Bar dataKey="profit" fill="#10b981" radius={[6, 6, 0, 0]} name="Net Kâr">
-                            {/* Bar üzerinde sürekli görünen etiket */}
                             <LabelList dataKey="profit" position="top" formatter={(val) => `$${val.toLocaleString()}`} style={{ fill: '#059669', fontSize: '12px', fontWeight: 'bold' }} />
                         </Bar>
                     </BarChart>
                 </ResponsiveContainer>
             </div>
 
-            {/* 2. Pie Chart: Bütçe */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96">
-                <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
-                    <ArrowDownRight className="text-indigo-500" size={20}/> Bütçe Harcaması
+            {/* 2. Pie Chart (GÜNCELLENDİ) */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-[500px]">
+                <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-2">
+                    <ArrowDownRight className="text-indigo-500" size={20}/> Bütçe Dağılımı
                 </h4>
                 <ResponsiveContainer width="100%" height="90%">
                     <PieChart>
@@ -255,17 +243,20 @@ export default function Dashboard() {
                             dataKey="cost" 
                             nameKey="username" 
                             cx="50%" cy="50%" 
-                            innerRadius={60} 
-                            outerRadius={90} 
+                            innerRadius={70} 
+                            outerRadius={100} 
                             fill="#8884d8"
-                            // Pie chart üzerinde sürekli görünen etiketler:
-                            label={({ name, percent }) => `${name} (%${(percent * 100).toFixed(0)})`}
+                            paddingAngle={5}
+                            // LABEL AYARI: İsim ve Bütçeyi dışarıya yazar
+                            label={({ name, value }) => `${name}: $${value}`}
                         >
                             {results.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={['#6366f1', '#a855f7', '#ec4899', '#3b82f6'][index % 4]} />
+                                <Cell key={`cell-${index}`} fill={['#6366f1', '#a855f7', '#ec4899', '#3b82f6', '#f59e0b'][index % 5]} />
                             ))}
                         </Pie>
                         <Tooltip formatter={(value) => formatCurrency(value)} />
+                        {/* LEGEND EKLENDİ: Renkleri ve isimleri aşağıda gösterir */}
+                        <Legend verticalAlign="bottom" height={36} iconType="circle"/>
                     </PieChart>
                 </ResponsiveContainer>
             </div>
@@ -300,15 +291,9 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                             </td>
-                            <td className="p-5 text-sm font-semibold text-slate-600">
-                                {formatCurrency(row.cost)}
-                            </td>
-                            <td className="p-5 text-sm font-medium text-slate-500">
-                                ${row.cpm}
-                            </td>
-                            <td className="p-5 text-sm font-semibold text-slate-600">
-                                {formatCurrency(row.earnings)}
-                            </td>
+                            <td className="p-5 text-sm font-semibold text-slate-600">{formatCurrency(row.cost)}</td>
+                            <td className="p-5 text-sm font-medium text-slate-500">${row.cpm}</td>
+                            <td className="p-5 text-sm font-semibold text-slate-600">{formatCurrency(row.earnings)}</td>
                             <td className="p-5">
                                 <span className={`text-sm font-bold ${row.isPositive ? 'text-green-600' : 'text-red-500'}`}>
                                     {row.isPositive ? '+' : ''}{formatCurrency(row.profit)}
