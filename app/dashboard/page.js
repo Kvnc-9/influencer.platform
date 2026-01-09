@@ -1,8 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
-import { Instagram, Info, TrendingUp, ArrowUpRight, ArrowDownRight, PlusCircle, DollarSign } from "lucide-react";
+import { 
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList 
+} from "recharts"; // LabelList eklendi
+import { Instagram, Info, TrendingUp, ArrowUpRight, ArrowDownRight, PlusCircle, Send } from "lucide-react";
 
 // Supabase Bağlantısı
 const supabase = createClient(
@@ -28,10 +31,44 @@ export default function Dashboard() {
   const [totalProfit, setTotalProfit] = useState(0); 
   const [loading, setLoading] = useState(false);
   const [showFormula, setShowFormula] = useState(false);
+  
+  // YENİ: Influencer Ekleme State'i
+  const [newInfluencerName, setNewInfluencerName] = useState("");
 
-  // Webhook Tetikleme Fonksiyonu
-  const triggerWebhook = () => {
-    alert("Webhook tetiklendi: Yeni influencer veritabanına ekleniyor...");
+  // YENİ: Webhook Tetikleme Fonksiyonu
+  const triggerWebhook = async () => {
+    if (!newInfluencerName.trim()) {
+      alert("Lütfen bir influencer ismi giriniz.");
+      return;
+    }
+
+    try {
+      // BURAYA KENDİ MAKE.COM / WEBHOOK URL'İNİ YAPIŞTIR
+      const WEBHOOK_URL = "https://hook.eu1.make.com/ixxd5cuuqkhhkpd8sqn5soiyol0a952x"; 
+
+      // Gerçek istek simülasyonu (URL boşsa hata vermemesi için kontrol)
+      if (WEBHOOK_URL.includes("SENIN_WEBHOOK")) {
+        // Test modu: Sadece alert verir
+        alert(`Simülasyon: ${newInfluencerName} için webhook tetiklendi! (Gerçek işlem için kod içindeki URL'i güncelle)`);
+      } else {
+        // Gerçek istek
+        await fetch(WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            influencer_name: newInfluencerName,
+            niche: niche,
+            request_date: new Date().toISOString()
+          })
+        });
+        alert(`${newInfluencerName} başarıyla işleme alındı!`);
+      }
+      
+      setNewInfluencerName(""); // Kutuyu temizle
+    } catch (error) {
+      console.error("Webhook Hatası:", error);
+      alert("Bir hata oluştu.");
+    }
   };
 
   const fetchInfluencers = async () => {
@@ -54,37 +91,21 @@ export default function Dashboard() {
     const calculatedData = data.map((inf) => {
       const avgViews = Number(inf.avg_views || 0);
 
-      // --- GERÇEKÇİLİK KATMANI ---
-      // Pazarlık Çarpanı (0.8 - 1.2 arası)
+      // Simülasyon Değerleri
       const negotiationFactor = 0.8 + Math.random() * 0.4;
-      
       const shareOfVoice = totalNicheViews > 0 ? avgViews / totalNicheViews : 0;
-      
-      // Maliyet Hesabı
       const cost = (budget * shareOfVoice) * negotiationFactor;
-
-      // Dönüşüm Oranı (Rastgelelik: %1.5 - %3.5)
       const randomConversionRate = 0.015 + (Math.random() * 0.020); 
-
-      // Tahmini Kazanç
       const estimatedSales = Math.floor(avgViews * randomConversionRate);
       const earnings = estimatedSales * productPrice;
-
-      // CPM (Cost Per Mille)
       const cpm = avgViews > 0 ? (cost / avgViews) * 1000 : 0;
-
-      // RPM (Revenue Per Mille)
       const rpm = avgViews > 0 ? (earnings / avgViews) * 1000 : 0;
-
-      // Net Kar
       const profit = earnings - cost;
+      
       calculatedTotalProfit += profit;
 
-      // ROI ÇARPANI (x1.5 formatı)
       let roiMultiplier = 0;
-      if (cost > 0) {
-        roiMultiplier = (earnings / cost).toFixed(1);
-      }
+      if (cost > 0) roiMultiplier = (earnings / cost).toFixed(1);
 
       return {
         username: inf.username,
@@ -112,7 +133,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
       <div className="max-w-7xl mx-auto">
         
-        {/* Üst Başlık */}
+        {/* Üst Başlık ve Webhook Alanı */}
         <header className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -121,26 +142,36 @@ export default function Dashboard() {
             <p className="text-slate-500 text-sm mt-1">Kampanya Simülasyonu ve ROI Analizi</p>
           </div>
           
-          <div className="flex gap-3 mt-4 md:mt-0">
-             {/* WEBHOOK BUTONU */}
-             <button 
-                onClick={triggerWebhook}
-                className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-500 px-4 py-2 rounded-lg hover:bg-slate-600 transition shadow-md"
-              >
-                <PlusCircle size={18} /> Influencer Ekle
-              </button>
+          {/* YENİ WEBHOOK & INPUT ALANI */}
+          <div className="flex flex-col md:flex-row gap-3 mt-4 md:mt-0 items-center">
+             
+             <div className="flex bg-slate-100 rounded-lg p-1 border border-slate-200">
+                <input 
+                  type="text" 
+                  placeholder="@kullanici_adi" 
+                  value={newInfluencerName}
+                  onChange={(e) => setNewInfluencerName(e.target.value)}
+                  className="bg-transparent px-3 py-2 outline-none text-sm w-40 text-slate-700 placeholder-slate-400"
+                />
+                <button 
+                  onClick={triggerWebhook}
+                  className="bg-slate-800 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-slate-700 transition flex items-center gap-2"
+                >
+                  <PlusCircle size={16} /> Ekle
+                </button>
+             </div>
 
               {/* Formül Butonu */}
               <button 
                 onClick={() => setShowFormula(!showFormula)}
-                className="flex items-center gap-2 text-sm font-semibold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition"
+                className="flex items-center gap-2 text-sm font-semibold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 transition h-full"
               >
                 <Info size={18} /> Mantık
               </button>
           </div>
         </header>
 
-        {/* Formül Açıklaması (Popup) */}
+        {/* Formül Açıklaması */}
         {showFormula && (
           <div className="bg-slate-800 text-white p-6 rounded-xl mb-8 shadow-lg animate-in slide-in-from-top-2">
             <h3 className="text-lg font-bold mb-4 border-b border-slate-600 pb-2">Kullanılan Formüller</h3>
@@ -190,12 +221,13 @@ export default function Dashboard() {
 
         {/* GRAFİKLER */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {/* 1. Bar Chart: Net Kâr */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96">
                 <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
                     <ArrowUpRight className="text-green-500" size={20}/> Net Kâr Dağılımı
                 </h4>
                 <ResponsiveContainer width="100%" height="90%">
-                    <BarChart data={results}>
+                    <BarChart data={results} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                         <XAxis dataKey="username" hide />
                         <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `$${value}`} />
@@ -203,11 +235,15 @@ export default function Dashboard() {
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                             formatter={(value) => formatCurrency(value)}
                         />
-                        <Bar dataKey="profit" fill="#10b981" radius={[6, 6, 0, 0]} name="Net Kâr" />
+                        <Bar dataKey="profit" fill="#10b981" radius={[6, 6, 0, 0]} name="Net Kâr">
+                            {/* Bar üzerinde sürekli görünen etiket */}
+                            <LabelList dataKey="profit" position="top" formatter={(val) => `$${val.toLocaleString()}`} style={{ fill: '#059669', fontSize: '12px', fontWeight: 'bold' }} />
+                        </Bar>
                     </BarChart>
                 </ResponsiveContainer>
             </div>
 
+            {/* 2. Pie Chart: Bütçe */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-96">
                 <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
                     <ArrowDownRight className="text-indigo-500" size={20}/> Bütçe Harcaması
@@ -219,10 +255,11 @@ export default function Dashboard() {
                             dataKey="cost" 
                             nameKey="username" 
                             cx="50%" cy="50%" 
-                            innerRadius={70} 
-                            outerRadius={100} 
-                            paddingAngle={5}
+                            innerRadius={60} 
+                            outerRadius={90} 
                             fill="#8884d8"
+                            // Pie chart üzerinde sürekli görünen etiketler:
+                            label={({ name, percent }) => `${name} (%${(percent * 100).toFixed(0)})`}
                         >
                             {results.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={['#6366f1', '#a855f7', '#ec4899', '#3b82f6'][index % 4]} />
@@ -278,7 +315,6 @@ export default function Dashboard() {
                                 </span>
                             </td>
                             <td className="p-5">
-                                {/* DÜZELTİLEN KISIM BURASI (Tek satıra indirildi) */}
                                 <div className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-bold border ${row.isPositive ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
                                     {row.roiMultiplier}
                                 </div>
